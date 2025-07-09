@@ -54,6 +54,7 @@ class ExtendedEditableText extends _EditableText {
     super.onAppPrivateCommand,
     super.onSelectionChanged,
     super.onSelectionHandleTapped,
+    super.groupId = EditableText,
     super.onTapOutside,
     super.inputFormatters,
     super.mouseCursor,
@@ -240,9 +241,10 @@ class ExtendedEditableTextState extends _EditableTextState {
       compositeCallback: _compositeCallback,
       enabled: _hasInputConnection,
       child: TextFieldTapRegion(
+        groupId: widget.groupId,
         onTapOutside:
             _hasFocus ? widget.onTapOutside ?? _defaultOnTapOutside : null,
-        debugLabel: kReleaseMode ? null : 'EditableText',
+        debugLabel: kReleaseMode ? null : 'ExtendedEditableText',
         child: MouseRegion(
           cursor: widget.mouseCursor ?? SystemMouseCursors.text,
           child: Actions(
@@ -661,8 +663,22 @@ class ExtendedEditableTextState extends _EditableTextState {
           );
         }
       } else if (selectionChanged) {
-        final InlineSpan inlineSpan =
-            (_editableKey.currentWidget as _ExtendedEditable).inlineSpan;
+        late final InlineSpan inlineSpan;
+
+        // after pinying complete, the _ExtendedEditable.inlineSpan is not the same as _value.text
+        // #255
+        // only for windows
+        if (defaultTargetPlatform == TargetPlatform.windows &&
+            // correct caret offset, pinying complete
+            !value.composing.isValid &&
+            _value.composing.isValid) {
+          inlineSpan = extendedEditableText.specialTextSpanBuilder!
+              .build(_value.text, textStyle: widget.style);
+          _value = _value.copyWith(selection: value.selection);
+        } else {
+          inlineSpan =
+              (_editableKey.currentWidget as _ExtendedEditable).inlineSpan;
+        }
 
         value = ExtendedTextLibraryUtils.correctCaretOffset(
           value,
